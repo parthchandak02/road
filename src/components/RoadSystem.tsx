@@ -59,52 +59,68 @@ function TerrainMountains({ normalize, rates }: { normalize: (rate: number) => n
 // Car component with headlights
 function Car({ position, rotation, reducedMotion }: { position: THREE.Vector3; rotation: number; reducedMotion: boolean }) {
   return (
-    <group position={position} rotation={[0, rotation, 0]}>
-      {/* Car body */}
-      <mesh position={[0, 0.3, 0]}>
-        <boxGeometry args={[0.6, 0.3, 1.2]} />
-        <meshLambertMaterial color={PALETTE.car} />
-      </mesh>
+  <group position={position} rotation={[0, rotation, 0]}>
+    {/* Car body */}
+    <mesh position={[0, 0.5, 0]}>
+      <boxGeometry args={[1.2, 0.5, 2.4]} />
+      <meshLambertMaterial color={PALETTE.car} />
+    </mesh>
 
-      {/* Car base */}
-      <mesh position={[0, 0.1, 0]}>
-        <boxGeometry args={[0.8, 0.15, 1.5]} />
-        <meshLambertMaterial color="#ff4500" />
-      </mesh>
+    {/* Car base */}
+    <mesh position={[0, 0.15, 0]}>
+      <boxGeometry args={[1.6, 0.25, 3.0]} />
+      <meshLambertMaterial color="#ff4500" />
+    </mesh>
 
-      {/* Headlights */}
-      <spotLight
-        position={[-0.25, 0.2, 0.8]}
-        target-position={[-2, -0.5, 8]}
-        intensity={reducedMotion ? 0 : 2}
-        color={PALETTE.carGlow}
-        angle={Math.PI / 8}
-        penumbra={0.3}
-        distance={15}
-        decay={2}
-      />
-      <spotLight
-        position={[0.25, 0.2, 0.8]}
-        target-position={[2, -0.5, 8]}
-        intensity={reducedMotion ? 0 : 2}
-        color={PALETTE.carGlow}
-        angle={Math.PI / 8}
-        penumbra={0.3}
-        distance={15}
-        decay={2}
-      />
+    {/* Windshield */}
+    <mesh position={[0, 0.55, -1.0]}>
+      <boxGeometry args={[1.0, 0.3, 0.1]} />
+      <meshBasicMaterial color="#4dd0e1" transparent opacity={0.3} />
+    </mesh>
 
-      {/* Headlight glow effect */}
-      <mesh position={[-0.25, 0.2, 0.9]}>
-        <sphereGeometry args={[0.08]} />
-        <meshBasicMaterial color={PALETTE.carGlow} />
-      </mesh>
-      <mesh position={[0.25, 0.2, 0.9]}>
-        <sphereGeometry args={[0.08]} />
-        <meshBasicMaterial color={PALETTE.carGlow} />
-      </mesh>
-    </group>
-  )
+    {/* Headlights */}
+    <spotLight
+      position={[-0.5, 0.3, 1.6]}
+      target-position={[-3, -1, 12]}
+      intensity={reducedMotion ? 0 : 3}
+      color={PALETTE.carGlow}
+      angle={Math.PI / 6}
+      penumbra={0.4}
+      distance={25}
+      decay={1.5}
+    />
+    <spotLight
+      position={[0.5, 0.3, 1.6]}
+      target-position={[3, -1, 12]}
+      intensity={reducedMotion ? 0 : 3}
+      color={PALETTE.carGlow}
+      angle={Math.PI / 6}
+      penumbra={0.4}
+      distance={25}
+      decay={1.5}
+    />
+
+    {/* Headlight glow spheres */}
+    <mesh position={[-0.5, 0.25, 1.5]}>
+      <sphereGeometry args={[0.15]} />
+      <meshBasicMaterial color={PALETTE.carGlow} />
+    </mesh>
+    <mesh position={[0.5, 0.25, 1.5]}>
+      <sphereGeometry args={[0.15]} />
+      <meshBasicMaterial color={PALETTE.carGlow} />
+    </mesh>
+      
+    {/* Taillights */}
+    <mesh position={[-0.5, 0.2, -1.5]}>
+      <sphereGeometry args={[0.1]} />
+      <meshBasicMaterial color="#ff1744" />
+    </mesh>
+    <mesh position={[0.5, 0.2, -1.5]}>
+      <sphereGeometry args={[0.1]} />
+      <meshBasicMaterial color="#ff1744" />
+    </mesh>
+  </group>
+)
 }
 
 export default function RoadSystem({ rates, normalize, reducedMotion = false, onRoadTap }: RoadSystemProps) {

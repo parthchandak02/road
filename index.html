@@ -1,13 +1,381 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>road</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>eurusd</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>💶</text></svg>" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0e11; -webkit-font-smoothing: antialiased; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif; }
+    
+    #app { width: 100%; height: 100%; display: flex; flex-direction: column; padding: 12px 16px env(safe-area-inset-bottom, 8px) 16px; }
+    
+    /* Header */
+    header { flex-shrink: 0; margin-bottom: 4px; }
+    .symbol { font-size: 13px; font-weight: 500; color: #8a929b; letter-spacing: -0.01em; margin-bottom: 1px; }
+    .rate-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .rate { font-family: 'SF Mono', 'IBM Plex Mono', monospace; font-size: 42px; font-weight: 600; color: #f0f0f0; letter-spacing: -0.03em; line-height: 1.1; }
+    .change { font-family: 'SF Mono', monospace; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    .change.up { color: #00c805; }
+    .change.down { color: #ff5052; }
+    .change.flat { color: #8a929b; }
+    .meta-row { display: flex; gap: 12px; margin-top: 2px; font-size: 11px; color: #5a6169; }
+    .meta-row span { display: flex; align-items: center; gap: 4px; }
+    .live-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #00c805; opacity: 0; }
+    .live-dot.active { opacity: 1; animation: pulse-dot 2s ease-in-out infinite; }
+    @keyframes pulse-dot { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    /* Chart */
+    .chart-wrap { flex: 1; position: relative; min-height: 200px; margin: 0 -16px; }
+    #chart { width: 100%; height: 100%; }
+
+    /* Timeframe pills */
+    .pills { flex-shrink: 0; display: flex; gap: 4px; justify-content: center; margin-top: 6px; }
+    .pill { font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 6px; border: none; background: transparent; color: #5a6169; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; font-family: inherit; transition: color 0.15s, background 0.15s; }
+    .pill:active { background: rgba(255,255,255,0.06); }
+    .pill.active { color: #f0f0f0; background: rgba(255,255,255,0.08); }
+
+    /* Stats row */
+    .stats { flex-shrink: 0; display: flex; justify-content: space-around; margin-top: 8px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.04); }
+    .stat { text-align: center; }
+    .stat-label { font-size: 10px; color: #5a6169; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+    .stat-value { font-family: 'SF Mono', monospace; font-size: 13px; font-weight: 600; color: #f0f0f0; }
+
+    /* Footer */
+    footer { flex-shrink: 0; display: flex; justify-content: center; margin-top: 6px; }
+    .attribution { font-size: 9px; color: rgba(255,255,255,0.12); letter-spacing: 0.01em; }
+    .frankfurter-link { color: rgba(0,229,255,0.35); text-decoration: none; transition: color 0.2s; }
+    .frankfurter-link:hover { color: rgba(0,229,255,0.7); }
+
+    /* Loading */
+    #loading { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0b0e11; transition: opacity 0.4s ease; }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.06); border-top-color: #00e5ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 12px; color: rgba(255,255,255,0.2); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="symbol">EUR / USD</div>
+      <div class="rate-row">
+        <span class="rate" id="rateDisplay">—</span>
+        <span class="change" id="changeDisplay"></span>
+      </div>
+      <div class="meta-row">
+        <span id="timestampDisplay">—</span>
+        <span><span class="live-dot" id="liveDot"></span><span id="sourceDisplay">loading</span></span>
+      </div>
+    </header>
+    
+    <div class="chart-wrap">
+      <div id="chart"></div>
+    </div>
+    
+    <div class="pills" id="pills">
+      <button class="pill" data-range="7">1W</button>
+      <button class="pill active" data-range="30">1M</button>
+      <button class="pill" data-range="90">3M</button>
+      <button class="pill" data-range="365">1Y</button>
+    </div>
+
+    <div class="stats" id="statsRow">
+      <div class="stat"><div class="stat-label">Open</div><div class="stat-value" id="statOpen">—</div></div>
+      <div class="stat"><div class="stat-label">High</div><div class="stat-value" id="statHigh">—</div></div>
+      <div class="stat"><div class="stat-label">Low</div><div class="stat-value" id="statLow">—</div></div>
+      <div class="stat"><div class="stat-label">Close</div><div class="stat-value" id="statClose">—</div></div>
+    </div>
+
+    <footer>
+      <div class="attribution">Data: Frankfurter · <a href="https://frankfurter.dev/" target="_blank" rel="noopener noreferrer" class="frankfurter-link">View on Frankfurter →</a></div>
+    </footer>
+  </div>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading rates...</div>
+  </div>
+
+  <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script>
+  // ─── Fallback data (guaranteed to work) ────────────────────────
+  const FALLBACK_RATES = [
+    { time: '2026-06-09', value: 1.1410 },
+    { time: '2026-06-10', value: 1.1395 },
+    { time: '2026-06-11', value: 1.1360 },
+    { time: '2026-06-12', value: 1.1345 },
+    { time: '2026-06-15', value: 1.1358 },
+    { time: '2026-06-16', value: 1.1372 },
+    { time: '2026-06-17', value: 1.1340 },
+    { time: '2026-06-18', value: 1.1310 },
+    { time: '2026-06-19', value: 1.1295 },
+    { time: '2026-06-22', value: 1.1308 },
+    { time: '2026-06-23', value: 1.1335 },
+    { time: '2026-06-24', value: 1.1350 },
+    { time: '2026-06-25', value: 1.1342 },
+    { time: '2026-06-26', value: 1.1365 },
+    { time: '2026-06-29', value: 1.1378 },
+    { time: '2026-06-30', value: 1.1390 },
+    { time: '2026-07-01', value: 1.1405 },
+    { time: '2026-07-02', value: 1.1418 },
+    { time: '2026-07-03', value: 1.1430 },
+    { time: '2026-07-06', value: 1.1412 },
+    { time: '2026-07-07', value: 1.1400 },
+    { time: '2026-07-08', value: 1.1425 },
+    { time: '2026-07-09', value: 1.1430 },
+  ];
+
+  // 'YYYY-MM-DD' strings and chart times are calendar days; read them as local dates
+  // (new Date('2026-07-09') is UTC midnight, which shows as Jul 8 west of UTC).
+  function toLocalDate(t) {
+    if (typeof t === 'string') { const [y, m, d] = t.split('-').map(Number); return new Date(y, m - 1, d); }
+    if (typeof t === 'number') { const u = new Date(t * 1000); return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate()); }
+    return new Date(t.year, t.month - 1, t.day);
+  }
+
+  // ─── State ──────────────────────────────────────────────────────
+  let allRates = [...FALLBACK_RATES]; // sorted full data
+  let sourceLabel = 'Frankfurter · fallback';
+  let isLoading = true;
+  let activeRange = 30;
+
+  const chartContainer = document.getElementById('chart');
+  const rateDisplay = document.getElementById('rateDisplay');
+  const changeDisplay = document.getElementById('changeDisplay');
+  const sourceDisplay = document.getElementById('sourceDisplay');
+  const timestampDisplay = document.getElementById('timestampDisplay');
+  const liveDot = document.getElementById('liveDot');
+  const loading = document.getElementById('loading');
+  const statOpen = document.getElementById('statOpen');
+  const statHigh = document.getElementById('statHigh');
+  const statLow = document.getElementById('statLow');
+  const statClose = document.getElementById('statClose');
+
+  // ─── Lightweight Charts setup ───────────────────────────────────
+  const chart = LightweightCharts.createChart(chartContainer, {
+    layout: {
+      background: { type: 'solid', color: '#0b0e11' },
+      textColor: '#5a6169',
+      fontSize: 11,
+      fontFamily: "'SF Mono', 'IBM Plex Mono', monospace",
+    },
+    width: chartContainer.clientWidth,
+    height: chartContainer.clientHeight,
+    grid: {
+      vertLines: { visible: false },
+      horzLines: { color: 'rgba(255,255,255,0.04)', style: 1 },
+    },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Magnet,
+      vertLine: { color: 'rgba(255,255,255,0.25)', width: 1, style: LightweightCharts.LineStyle.Dashed, labelBackgroundColor: '#0b0e11' },
+      horzLine: { color: 'rgba(255,255,255,0.15)', width: 1, style: LightweightCharts.LineStyle.Dashed, labelBackgroundColor: '#0b0e11' },
+    },
+    rightPriceScale: {
+      borderVisible: false,
+      scaleMargins: { top: 0.05, bottom: 0.05 },
+      entireTextOnly: true,
+    },
+    timeScale: {
+      borderVisible: false,
+      timeVisible: false,
+      secondsVisible: false,
+      tickMarkFormatter: (time) => {
+        const d = toLocalDate(time);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      },
+    },
+    handleScroll: { vertTouchDrag: false, horzTouchDrag: true },
+    handleScale: { axisPressedMouseMove: false },
+  });
+
+  const areaSeries = chart.addAreaSeries({
+    lineColor: '#00e5ff',
+    topColor: 'rgba(0,229,255,0.30)',
+    bottomColor: 'rgba(0,229,255,0.02)',
+    lineWidth: 2.5,
+    priceLineVisible: false,
+    crosshairMarkerVisible: true,
+    crosshairMarkerRadius: 4,
+    crosshairMarkerBorderColor: '#00e5ff',
+    crosshairMarkerBackgroundColor: '#00e5ff',
+    priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
+  });
+
+  // ─── Resize ─────────────────────────────────────────────────────
+  function resizeChart() {
+    const wrap = chartContainer.parentElement;
+    if (!wrap) return;
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+    if (w > 0 && h > 0) {
+      chart.applyOptions({ width: w, height: h });
+    }
+  }
+
+  window.addEventListener('resize', resizeChart);
+  window.addEventListener('orientationchange', () => setTimeout(resizeChart, 400));
+  new ResizeObserver(resizeChart).observe(chartContainer.parentElement);
+
+  // ─── Crosshair tooltip ──────────────────────────────────────────
+  const tooltipDiv = document.createElement('div');
+  tooltipDiv.style.cssText = 'position:fixed;pointer-events:none;z-index:10;opacity:0;transition:opacity 0.15s;'
+    + 'background:rgba(11,14,17,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:4px 8px;'
+    + 'font:12px "SF Mono",monospace;color:#f0f0f0;line-height:1.3;text-align:center;';
+  document.body.appendChild(tooltipDiv);
+
+  // Mouse: follows the crosshair. Touch: a tap pins the readout to the tapped day.
+  let pinnedByTap = false;
+  function showTip(param) {
+    if (!param.time || !param.point || !param.seriesData.size) {
+      tooltipDiv.style.opacity = '0';
+      return;
+    }
+    const data = param.seriesData.get(areaSeries);
+    if (!data || typeof data.value !== 'number') {
+      tooltipDiv.style.opacity = '0';
+      return;
+    }
+    const d = toLocalDate(param.time);
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    tooltipDiv.innerHTML = `${data.value.toFixed(4)}<span style="font-size:10px;color:#8a929b"> · ${dateStr}</span>`;
+    tooltipDiv.style.opacity = '1';
+
+    // Position
+    const chartRect = chartContainer.getBoundingClientRect();
+    const relX = param.point.x;
+    const relY = param.point.y;
+    let tx = chartRect.left + relX - 50;
+    let ty = chartRect.top + relY - 44;
+    const tw = tooltipDiv.offsetWidth, th = tooltipDiv.offsetHeight;
+    if (tx < 8) tx = 8;
+    if (tx + tw > window.innerWidth - 8) tx = window.innerWidth - tw - 8;
+    if (ty < 8) ty = chartRect.top + relY + 14;
+    if (ty + th > window.innerHeight - 8) ty = chartRect.top + relY - th - 14;
+    tooltipDiv.style.left = tx + 'px';
+    tooltipDiv.style.top = ty + 'px';
+  }
+  chart.subscribeCrosshairMove((param) => {
+    if (pinnedByTap && !param.time) return;
+    pinnedByTap = false;
+    showTip(param);
+  });
+  chart.subscribeClick((param) => {
+    pinnedByTap = true;
+    showTip(param);
+  });
+
+  // ─── Update display ─────────────────────────────────────────────
+  const RANGE_LABELS = { 7: 'past week', 30: 'past month', 90: 'past 3 months', 365: 'past year' };
+  function updateDisplay(rates, days) {
+    if (rates.length < 2) return;
+    const last = rates[rates.length - 1];
+    const prev = rates[0];
+    const change = last.value - prev.value;
+    const changePct = (change / prev.value) * 100;
+    rateDisplay.textContent = last.value.toFixed(4);
+    changeDisplay.textContent = (change >= 0 ? '+' : '') + change.toFixed(4) + ' (' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%) ' + (RANGE_LABELS[days] || '');
+    changeDisplay.className = 'change' + (change > 0.0001 ? ' up' : change < -0.0001 ? ' down' : ' flat');
+
+    // Stats
+    const vals = rates.map(r => r.value);
+    const open = rates[0].value;
+    const high = Math.max(...vals);
+    const low = Math.min(...vals);
+    const close = last.value;
+    statOpen.textContent = open.toFixed(4);
+    statHigh.textContent = high.toFixed(4);
+    statLow.textContent = low.toFixed(4);
+    statClose.textContent = close.toFixed(4);
+  }
+
+  // ─── Set data with range ────────────────────────────────────────
+  function setRange(rates, days) {
+    if (rates.length < 5) return;
+    const now = new Date(rates[rates.length - 1].time);
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - days);
+    const filtered = rates.filter(r => new Date(r.time) >= cutoff);
+    const data = filtered.length >= 5 ? filtered : rates;
+    areaSeries.setData(data);
+    chart.timeScale().fitContent();
+    updateDisplay(data, days);
+    tooltipDiv.style.opacity = '0';
+    return data;
+  }
+
+  // ─── Timeframe pills ────────────────────────────────────────────
+  document.querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeRange = parseInt(btn.dataset.range);
+      setRange(allRates, activeRange);
+    });
+  });
+
+  // ─── Data fetch ─────────────────────────────────────────────────
+  async function fetchRates() {
+    const end = new Date();
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 1);
+    const fmt = (d) => d.toISOString().split('T')[0];
+    const url = `https://api.frankfurter.dev/v1/${fmt(start)}..${fmt(end)}?from=EUR&to=USD`;
+
+    try {
+      const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const json = await resp.json();
+      const newRates = Object.entries(json.rates || {})
+        .map(([date, r]) => ({ time: date, value: +(r['USD']).toFixed(4) }))
+        .sort((a, b) => a.time.localeCompare(b.time))
+        .filter(r => r.value > 0);
+      if (newRates.length >= 10) {
+        const lastDate = toLocalDate(newRates[newRates.length - 1].time);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const daysAgo = Math.round((today - lastDate) / 86400000);
+        const freshness = daysAgo === 0 ? 'live' : (daysAgo === 1 ? '1d ago' : daysAgo + 'd ago');
+        allRates = newRates;
+        sourceLabel = 'Frankfurter · ' + freshness;
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  async function init() {
+    // Race: try API fetch for 3s, fallback immediately if it hangs
+    let fetched = false;
+    try {
+      const result = await Promise.race([
+        fetchRates(),
+        new Promise(resolve => setTimeout(() => resolve('timeout'), 3000))
+      ]);
+      if (result === 'timeout') {
+        allRates = FALLBACK_RATES;
+        sourceLabel = 'sample data · API unavailable';
+      } else {
+        fetched = result;
+        if (!fetched) {
+          allRates = FALLBACK_RATES;
+          sourceLabel = 'sample data · API unavailable';
+        }
+      }
+    } catch (_) {
+      allRates = FALLBACK_RATES;
+      sourceLabel = 'sample data · API unavailable';
+    }
+    sourceDisplay.textContent = sourceLabel;
+    if (fetched) liveDot.classList.add('active');
+    const lastDate = toLocalDate(allRates[allRates.length - 1].time);
+    timestampDisplay.textContent = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    setRange(allRates, activeRange);
+    resizeChart();
+    loading.classList.add('hidden');
+  }
+
+  init();
+  </script>
+</body>
 </html>

@@ -1,4 +1,8 @@
-# Road — Creative Brief
+# Road — Creative Brief (original)
+
+> Historical. This is the brief for the first version, a 3D React Three Fiber road. The project
+> was later rebuilt as a single-file 2D line chart (`index.html`); the 3D version is in git history
+> before that change. Data source and fallback notes still apply; the scene, chrome and deploy sections do not.
 
 ## Concept
 A winding mountain road through a moody night landscape. Road elevation traces EUR/USD exchange rates over the last 30 trading days. A glowing car drives along the road from past to present. Sharp dips show rate drops; climbs show rate rallies. Hero number shows current rate. Tap any point on the road to see the exact rate and date.
